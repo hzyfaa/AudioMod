@@ -1,13 +1,17 @@
 import { useRef, useState, useEffect } from "react";
 
 /**
- * Custom hook to manage audio upload and playback.
- * Handles creating audio URLs, play/pause controls, and cleanup.
+ * Custom hook to manage audio upload and playback
+ * Handles creating audio URLs, play/pause controls, and cleanup
  */
 export function useAudio() {
     const audioRef = useRef<HTMLAudioElement>(null);
     const [audioFile, setAudioFile] = useState<string | null>(null);
     const [fileName, setFileName] = useState<string | null>(null);
+    const [speed, setSpeed] = useState(1.0);
+    const [progress, setProgress] = useState(0); // in seconds
+    const [duration, setDuration] = useState(0); // total length in seconds
+    const [isPlaying, setIsPlaying] = useState(false); // Track play/pause state
 
     /**
      * Uploads an audio file and creates a local URL.
@@ -22,28 +26,81 @@ export function useAudio() {
             }
             return url;
         });
-        // remove extension
+
+        // remove extension from name
         const name = file.name.replace(/\.[^/.]+$/, "");
         setFileName(name);
     };
 
-    /**
-     * Play audio.
-     */
+    // progress bar
+    const seek = (value: number) => {
+        if (audioRef.current) {
+            audioRef.current.currentTime = value;
+        }
+    };
+
+    // adjust speed
+    const changeSpeed = (value: number) => {
+        setSpeed(value);
+        if (audioRef.current) {
+            audioRef.current.playbackRate = value;
+        }
+    };
+
+    // play audio
     const play = () => {
         audioRef.current?.play();
+        setIsPlaying(true);
     };
 
-    /**
-     * Pause audio.
-     */
+    // pause audio
     const pause = () => {
         audioRef.current?.pause();
+        setIsPlaying(false);
     };
 
-    /**
-     * Cleanup URL object when component unmounts
-     */
+    // Toggle between play and pause
+    const toggleState = () => {
+        if (!audioRef.current) return;
+        if (audioRef.current.paused) {
+            play();
+        } else {
+            pause();
+        }
+    };
+
+    // track audio
+    useEffect(() => {
+        const audio = audioRef.current;
+        if (!audio) return;
+
+        // Update current time as audio plays
+        const updateProgress = () => {
+            setProgress(audio.currentTime);
+        };
+
+        // Capture duration once metadata is loaded
+        const onLoadedMetadata = () => {
+            setDuration(audio.duration);
+        };
+
+        // Update play state on end
+        const onEnded = () => {
+            setIsPlaying(false);
+        };
+
+        audio.addEventListener("timeupdate", updateProgress);
+        audio.addEventListener("loadedmetadata", onLoadedMetadata);
+        audio.addEventListener("ended", onEnded);
+
+        return () => {
+            audio.removeEventListener("timeupdate", updateProgress);
+            audio.removeEventListener("loadedmetadata", onLoadedMetadata);
+            audio.removeEventListener("ended", onEnded);
+        };
+    }, [audioFile]);
+
+    // Cleanup URL object when component unmounts
     useEffect(() => {
         return () => {
             if (audioFile) {
@@ -52,5 +109,5 @@ export function useAudio() {
         };
     }, [audioFile]);
 
-    return { audioRef, audioFile, fileName, uploadAudio, play, pause };
+    return { audioRef, audioFile, fileName, speed, progress, duration, isPlaying, uploadAudio, toggleState, changeSpeed, seek };
 }
