@@ -4,12 +4,13 @@ import { Button } from "@/components/ui/button";
 import { SpeedSlider } from "@/components/controls/SpeedSlider";
 import { ProgressBar } from "@/components/controls/ProgressBar";
 import { Play, Pause } from 'lucide-react';
+import { ReverbSlider } from "../controls/ReverbSlider";
 
 /**
  * AudioPlayer component handles uploading, playing, and pausing audio.
  */
 export function AudioPlayer() {
-    const { audioRef, audioFile, fileName, speed, progress, duration, isPlaying, uploadAudio, changeSpeed, seek, toggleState } = useAudio();
+    const { audioRef, audioFile, fileName, speed, progress, duration, isPlaying, uploadAudio, changeSpeed, seek, toggleState, reverbAmount, changeReverb } = useAudio();
 
     return (
         <div className="flex flex-col items-center justify-center space-y-6">
@@ -34,6 +35,9 @@ export function AudioPlayer() {
 
                     {/* Speed Slider */}
                     <SpeedSlider value={speed} onChange={changeSpeed} />
+
+                    {/* Reverb Slider */}
+                    <ReverbSlider value={reverbAmount * 200} onChange={changeReverb} />
                 </>
             )}
         </div>
