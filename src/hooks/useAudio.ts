@@ -25,16 +25,20 @@ export function useAudio() {
     const [audioFile, setAudioFile] = useState<string | null>(null);
     const [fileName, setFileName] = useState<string | null>(null);
     const [speed, setSpeed] = useState(1.0);
-    const [progress, setProgress] = useState(0); // in seconds
-    const [duration, setDuration] = useState(0); // total length in seconds
-    const [isPlaying, setIsPlaying] = useState(false); // Track play/pause state
+    // in seconds
+    const [progress, setProgress] = useState(0);
+    // total length in seconds
+    const [duration, setDuration] = useState(0);
+    // track play/pause state
+    const [isPlaying, setIsPlaying] = useState(false);
 
     const audioContextRef = useRef<AudioContext | null>(null);
     const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
     const convolverRef = useRef<ConvolverNode | null>(null);
     const dryGainRef = useRef<GainNode | null>(null);
     const wetGainRef = useRef<GainNode | null>(null);
-    const [reverbAmount, setReverbAmount] = useState(0); // 0 = dry only, 1 = full reverb
+    // 0 = dry only, 1 = full reverb
+    const [reverbAmount, setReverbAmount] = useState(0);
 
     /**
      * Uploads an audio file and creates a local URL.
@@ -79,9 +83,7 @@ export function useAudio() {
 
     // progress bar
     const seek = (value: number) => {
-        if (audioRef.current) {
-            audioRef.current.currentTime = value;
-        }
+        if (audioRef.current) audioRef.current.currentTime = value;
     };
 
     // adjust speed
@@ -89,6 +91,7 @@ export function useAudio() {
         setSpeed(value);
         if (audioRef.current) {
             audioRef.current.playbackRate = value;
+            audioRef.current.preservesPitch = false;
         }
     };
 
@@ -99,8 +102,10 @@ export function useAudio() {
     const changeReverb = (value: number) => {
         setReverbAmount(value);
         if (dryGainRef.current && wetGainRef.current) {
-            dryGainRef.current.gain.value = 1 - value; // reduce dry as reverb increases
-            wetGainRef.current.gain.value = value;     // increase wet
+            // reduce dry as reverb increases
+            dryGainRef.current.gain.value = 1 - value;
+            // increase wet
+            wetGainRef.current.gain.value = value;
         }
     };
 
@@ -110,19 +115,13 @@ export function useAudio() {
         if (!audio) return;
 
         // Update current time as audio plays
-        const updateProgress = () => {
-            setProgress(audio.currentTime);
-        };
+        const updateProgress = () => setProgress(audio.currentTime);
 
         // Capture duration once metadata is loaded
-        const onLoadedMetadata = () => {
-            setDuration(audio.duration);
-        };
+        const onLoadedMetadata = () => setDuration(audio.duration);
 
         // Update play state on end
-        const onEnded = () => {
-            setIsPlaying(false);
-        };
+        const onEnded = () => setIsPlaying(false);
 
         audio.addEventListener("timeupdate", updateProgress);
         audio.addEventListener("loadedmetadata", onLoadedMetadata);
@@ -138,9 +137,7 @@ export function useAudio() {
     // Cleanup URL object when component unmounts
     useEffect(() => {
         return () => {
-            if (audioFile) {
-                URL.revokeObjectURL(audioFile);
-            }
+            if (audioFile) URL.revokeObjectURL(audioFile);
         };
     }, [audioFile]);
 
@@ -151,9 +148,7 @@ export function useAudio() {
         const context = audioContextRef.current ?? new AudioContext();
         audioContextRef.current = context;
 
-        if (context.state === "suspended") {
-            context.resume();
-        }
+        if (context.state === "suspended") context.resume();
 
         // Create source only once — store a flag on the audio element itself to avoid re-wrapping
         if (!sourceRef.current) {
