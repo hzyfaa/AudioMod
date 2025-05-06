@@ -38,7 +38,7 @@ export function useAudio(): UseAudioReturn {
     const convolverRef = useRef<ConvolverNode | null>(null);
     const dryGainRef = useRef<GainNode | null>(null);
     const wetGainRef = useRef<GainNode | null>(null);
-
+  
     // create local URL
     const uploadAudio = useCallback((file: File) => {
         // validate file type
@@ -67,7 +67,7 @@ export function useAudio(): UseAudioReturn {
         }
         setIsPlaying(!audio.paused);
     }, []);
-
+  
     // seek to time
     const seek = useCallback((value: number) => {
         // value should be within bounds
@@ -91,7 +91,7 @@ export function useAudio(): UseAudioReturn {
             setReverbAmount(value);
         }
     }, []);
-
+           
     // set up audio processing graph
     const setUpAudioGraph = useCallback(() => {
         const audio = audioRef.current;
