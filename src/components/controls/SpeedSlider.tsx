@@ -1,33 +1,36 @@
 import { Slider } from "@/components/ui/slider";
+import { useState } from "react";
 
 interface SpeedSliderProps {
-    value: number;
     onChange: (value: number) => void;
-    /* min (default: 0.5) */
     min?: number;
-    /* max (default: 2) */
     max?: number;
-    /* step (default: 0.05) */
     step?: number;
 }
 
 export function SpeedSlider({
-    value,
     onChange,
     min = 0.5,
     max = 2,
     step = 0.05
 }: SpeedSliderProps) {
+    const [speed, setSpeed] = useState([1.0]);
+
+    const handleChange = (v: number[]) => {
+        setSpeed(v);
+        onChange(v[0]);
+    };
+
     return (
         <div className="flex flex-col items-center space-y-2 w-full max-w-md">
-            <label className="text-sm font-medium">Speed: {value}x</label>
+            <label className="text-sm font-medium">Speed: {speed[0].toFixed(2)}x</label>
             <Slider
                 id="speed-slider"
                 min={min}
                 max={max}
                 step={step}
-                value={[value]}
-                onValueChange={([v]) => onChange(v)}
+                value={speed}
+                onValueChange={handleChange}
             />
         </div>
     );

@@ -1,11 +1,8 @@
 import { Slider } from "@/components/ui/slider";
 
 interface ProgressBarProps {
-    /* playback position in seconds */
     currentTime: number;
-    /* duration in seconds */
     duration: number;
-    /* on new position set */
     onSeek: (time: number) => void;
     min?: number;
     max?: number;
@@ -21,7 +18,6 @@ const formatTime = (seconds: number): string => {
     return `${mins}:${secs}`;
 };
 
-// audio seek bar
 export function ProgressBar({
     currentTime,
     duration,
@@ -31,11 +27,7 @@ export function ProgressBar({
     step = 0.1
 }: ProgressBarProps) {
     return (
-        <div className="w-full max-w-md space-y-2">
-            <div className="w-full flex justify-between text-xs text-muted-foreground">
-                <span>{formatTime(currentTime)}</span>
-                <span>{formatTime(duration)}</span>
-            </div>
+        <div className="max-w-sm w-full">
             <Slider
                 min={min}
                 max={max}
@@ -43,6 +35,10 @@ export function ProgressBar({
                 value={[currentTime]}
                 onValueChange={([v]) => { onSeek(v) }}
             />
+            <div className="mt-1 flex justify-between text-xs font-medium text-muted-foreground">
+                <span>{formatTime(currentTime)}</span>
+                <span>{formatTime(duration)}</span>
+            </div>
         </div>
     );
 }
