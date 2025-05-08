@@ -18,17 +18,21 @@ export function UploadButton({
     const handleChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
+
         // validate file type
         if (!file.type.startsWith('audio/')) {
             alert(`UploadButton : Invalid file type`);
             return;
         }
+
         // validate size (MB to bytes)
         if (file.size > maxSize * MB_TO_BYTES) {
             alert(`File too large. Maximum size is ${maxSize}MB`);
             return;
         }
+
         onUpload(file);
+
         // reset input to allow uploading file again
         event.target.value = "";
     }, [maxSize, onUpload]);

@@ -5,22 +5,22 @@ import { ProgressBar } from "@/components/controls/ProgressBar";
 import { ReverbSlider } from "@/components/controls/ReverbSlider";
 import { Button } from "@/components/ui/button";
 import { Play, Pause } from "lucide-react";
+import { VolumeBooster } from "../controls/VolumeBooster";
 
 export function AudioPlayer() {
     const {
         audioRef,
         audioFile,
         fileName,
-        speed,
         progress,
         duration,
         isPlaying,
-        reverbAmount,
         uploadAudio,
-        changeSpeed,
-        seek,
         togglePlayback,
-        changeReverb
+        updateSpeed,
+        seek,
+        updateReverb,
+        updateVolumeBoost
     } = useAudio();
 
     return (
@@ -42,9 +42,11 @@ export function AudioPlayer() {
                     {/* Audio Seek */}
                     <ProgressBar currentTime={progress} duration={duration} onSeek={seek} />
                     {/* Speed Slider */}
-                    <SpeedSlider value={speed} onChange={changeSpeed} />
+                    <SpeedSlider onChange={updateSpeed} />
                     {/* Reverb Slider */}
-                    <ReverbSlider value={reverbAmount} onChange={changeReverb} />
+                    <ReverbSlider onChange={updateReverb} />
+                    {/* Volume boost control */}
+                    <VolumeBooster onChange={updateVolumeBoost} />
                 </>
             )}
         </div>
