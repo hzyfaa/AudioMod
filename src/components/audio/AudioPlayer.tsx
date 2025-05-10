@@ -26,7 +26,7 @@ export function AudioPlayer() {
     return (
         <div className="flex flex-col items-center justify-center space-y-6">
             {/* Upload button */}
-            <UploadButton accept="audio/*" onUpload={uploadAudio} />
+            <UploadButton onUpload={uploadAudio} />
             {/* audio controls - hidden until file is uploaded */}
             {audioFile && (
                 <>

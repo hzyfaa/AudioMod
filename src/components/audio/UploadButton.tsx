@@ -1,49 +1,90 @@
-import { ChangeEvent, useCallback } from "react";
-import { Button } from "@/components/ui/button";
-import { UploadIcon } from "lucide-react";
+import { ChangeEvent, useCallback, useState } from "react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { UploadIcon, OctagonAlert } from "lucide-react";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogContent,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+
+const MB_TO_BYTES = 1024 ** 2;
+const MAX_SIZE = 20;
+const ACCEPTED_TYPES = [
+    'audio/mpeg',
+    'audio/wav',
+    'audio/ogg',
+    'audio/aac',
+    'audio/mp4',
+    'audio/x-m4a'
+];
 
 interface UploadButtonProps {
     onUpload: (file: File) => void;
-    accept?: string;
-    maxSize?: number;
 }
-
-const MB_TO_BYTES = 1024 ** 2;
 
 export function UploadButton({
     onUpload,
-    accept = "audio/*",
-    maxSize = 20
 }: UploadButtonProps) {
+    const [alertOpen, setAlertOpen] = useState(false);
+    const [alertTitle, setAlertTitle] = useState("");
+
     const handleChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
-
         // validate file type
-        if (!file.type.startsWith('audio/')) {
-            alert(`UploadButton : Invalid file type`);
+        if (!ACCEPTED_TYPES.includes(file.type)) {
+            setAlertTitle("Invalid File Type");
+            setAlertOpen(true);
+            event.target.value = "";
             return;
         }
-
-        // validate size (MB to bytes)
-        if (file.size > maxSize * MB_TO_BYTES) {
-            alert(`File too large. Maximum size is ${maxSize}MB`);
+        // validate size
+        if (file.size > MAX_SIZE * MB_TO_BYTES) {
+            setAlertTitle("File Too Large");
+            setAlertOpen(true);
+            event.target.value = "";
             return;
         }
 
         onUpload(file);
-
         // reset input to allow uploading file again
         event.target.value = "";
-    }, [maxSize, onUpload]);
+    }, [onUpload]);
 
     return (
         <div className="flex items-center justify-center">
+            <AlertDialog open={alertOpen} onOpenChange={setAlertOpen}>
+                <AlertDialogContent>
+                    {/* ALERT HEADER */}
+                    <AlertDialogHeader className="items-center">
+                        {/* ALERT TITLE */}
+                        <AlertDialogTitle>
+                            <div className="mb-2 mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10">
+                                <OctagonAlert className="h-7 w-7 text-destructive" />
+                            </div>
+                            {alertTitle}
+                        </AlertDialogTitle>
+                    </AlertDialogHeader>
+                    {/* ALERT FOOTER */}
+                    <AlertDialogFooter className="mt-2 sm:justify-center">
+                        <AlertDialogAction
+                            className={`${buttonVariants({ variant: "destructive" })} cursor-pointer`}
+                            onClick={() => setAlertOpen(false)}>
+                            OK
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            {/* INPUT FIELD */}
             <input
                 id="audio-upload"
-                type="file"
                 className="hidden"
-                accept={accept}
+                type="file"
+                accept="audio/*"
                 onChange={handleChange}
             />
             <Button asChild variant="default" className="gap-2 pl-4 pr-6 cursor-pointer">
