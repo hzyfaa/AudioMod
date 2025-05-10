@@ -32,6 +32,12 @@ export function UploadButton({
     const [alertOpen, setAlertOpen] = useState(false);
     const [alertTitle, setAlertTitle] = useState("");
 
+    const clearAlert = useCallback(() => {
+        setAlertOpen(false);
+        setAlertTitle("");
+    }, []);
+
+
     const handleChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
@@ -63,17 +69,17 @@ export function UploadButton({
                     <AlertDialogHeader className="items-center">
                         {/* ALERT TITLE */}
                         <AlertDialogTitle>
-                            <div className="mb-2 mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10">
-                                <OctagonAlert className="h-7 w-7 text-destructive" />
+                            <div className="mb-2 mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
+                                <OctagonAlert className="h-5 w-5 text-destructive" />
                             </div>
                             {alertTitle}
                         </AlertDialogTitle>
                     </AlertDialogHeader>
                     {/* ALERT FOOTER */}
-                    <AlertDialogFooter className="mt-2 sm:justify-center">
+                    <AlertDialogFooter className="sm:justify-center">
                         <AlertDialogAction
                             className={`${buttonVariants({ variant: "destructive" })} cursor-pointer`}
-                            onClick={() => setAlertOpen(false)}>
+                            onClick={clearAlert}>
                             OK
                         </AlertDialogAction>
                     </AlertDialogFooter>
