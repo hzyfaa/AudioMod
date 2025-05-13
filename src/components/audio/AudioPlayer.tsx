@@ -6,6 +6,7 @@ import { ReverbSlider } from "@/components/controls/ReverbSlider";
 import { Button } from "@/components/ui/button";
 import { Play, Pause } from "lucide-react";
 import { VolumeBooster } from "../controls/VolumeBooster";
+import { Equalizer } from "../controls/eq/Equalizer";
 
 export function AudioPlayer() {
     const {
@@ -20,7 +21,8 @@ export function AudioPlayer() {
         updateSpeed,
         seek,
         updateReverb,
-        updateVolumeBoost
+        updateVolumeBoost,
+        updateEQ
     } = useAudio();
 
     return (
@@ -47,6 +49,8 @@ export function AudioPlayer() {
                     <ReverbSlider onChange={updateReverb} />
                     {/* Volume boost control */}
                     <VolumeBooster onChange={updateVolumeBoost} />
+                    {/* Equalizer control */}
+                    <Equalizer onChange={updateEQ} />
                 </>
             )}
         </div>

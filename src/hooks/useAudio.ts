@@ -14,6 +14,7 @@ interface UseAudioReturn {
     seek: (value: number) => void;
     updateReverb: (value: number) => void;
     updateVolumeBoost: (value: number) => void;
+    updateEQ: (bandIndex: number, gain: number) => void;
 }
 
 /*
@@ -30,6 +31,7 @@ export function useAudio(): UseAudioReturn {
     const speed = useRef(1.0);
     const reverb = useRef(0);
     const volumeBoost = useRef(1.0);
+    const eqBands = useRef<number[]>([0, 0, 0, 0, 0, 0]);
 
     // audio node references
     const audioContextRef = useRef<AudioContext | null>(null);
@@ -38,6 +40,7 @@ export function useAudio(): UseAudioReturn {
     const dryGainRef = useRef<GainNode | null>(null);
     const wetGainRef = useRef<GainNode | null>(null);
     const boostGainRef = useRef<GainNode | null>(null);
+    const filtersRef = useRef<BiquadFilterNode[]>([]);
 
     // return local url and set file name
     const uploadAudio = useCallback((file: File) => {
@@ -111,15 +114,22 @@ export function useAudio(): UseAudioReturn {
         boostGainRef.current.gain.value = gainValue;
     }, []);
 
+    // update EQ band gain
+    const updateEQ = useCallback((bandIndex: number, gain: number) => {
+        if (!filtersRef.current) return;
+
+        eqBands.current[bandIndex] = gain;
+        filtersRef.current[bandIndex].gain.value = gain;
+    }, []);
+
     const setUpAudioGraph = useCallback(() => {
         if (!audioRef.current) return;
-
-        const audio = audioRef.current;
 
         // store temp previous effect values
         const tempDry = dryGainRef.current?.gain.value;
         const tempWet = wetGainRef.current?.gain.value;
 
+        const audio = audioRef.current;
         const context = audioContextRef.current ?? new AudioContext();
         audioContextRef.current = context;
 
@@ -133,6 +143,7 @@ export function useAudio(): UseAudioReturn {
         wetGainRef.current?.disconnect();
         convolverRef.current?.disconnect();
         boostGainRef.current?.disconnect();
+        filtersRef.current.forEach(f => f.disconnect());
 
         // create new nodes
         dryGainRef.current = context.createGain();
@@ -140,16 +151,41 @@ export function useAudio(): UseAudioReturn {
         convolverRef.current = context.createConvolver();
         boostGainRef.current = context.createGain();
 
+        const frequencies = [60, 150, 400, 1000, 2400, 15000];
+        filtersRef.current = frequencies.map((freq, i) => {
+            const filter = context.createBiquadFilter();
+            filter.type = "peaking";
+            filter.frequency.value = freq;
+            filter.gain.value = eqBands.current[i];
+            filter.Q.value = 1.0;
+            return filter;
+        });
+
         // set impulse response (* currently takes default duration and decay *)
         convolverRef.current.buffer = createImpulseResponseBuffer(context, 5, 5);
 
-        // connect nodes to graph
-        sourceRef.current
-            .connect(dryGainRef.current)
+        // connect nodes
+
+        // SOURCE -> EQ -> split:
+        //  dry gain -> boost
+        //  convolver -> wet gain -> boost
+        //      boost -> out
+
+        let lastNode: AudioNode = sourceRef.current;
+
+        // connect EQ filters
+        filtersRef.current.forEach(filter => {
+            lastNode.connect(filter);
+            lastNode = filter;
+        });
+
+        // dry path
+        lastNode.connect(dryGainRef.current)
             .connect(boostGainRef.current)
             .connect(context.destination);
-        sourceRef.current
-            .connect(convolverRef.current)
+
+        // wet path
+        lastNode.connect(convolverRef.current)
             .connect(wetGainRef.current)
             .connect(boostGainRef.current)
             .connect(context.destination);
@@ -208,6 +244,7 @@ export function useAudio(): UseAudioReturn {
         seek,
         updateSpeed,
         updateReverb,
-        updateVolumeBoost
+        updateVolumeBoost,
+        updateEQ
     };
 }

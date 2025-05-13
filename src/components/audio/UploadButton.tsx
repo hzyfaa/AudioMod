@@ -37,7 +37,6 @@ export function UploadButton({
         setAlertTitle("");
     }, []);
 
-
     const handleChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
