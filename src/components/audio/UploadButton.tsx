@@ -89,7 +89,6 @@ export function UploadButton({
                 id="audio-upload"
                 className="hidden"
                 type="file"
-                accept="audio/*"
                 onChange={handleChange}
             />
             <Button asChild variant="default" className="gap-2 pl-4 pr-6 cursor-pointer">
