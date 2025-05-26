@@ -1,15 +1,14 @@
 # AudioMod
 Web audio player that allows you to upload local audio files and modify playback with audio effects.
 
+## Live Demo
+🔗 [Try it on Vercel](https://audio-mod.vercel.app)
+
 ## Features
 - Playback speed control
 - Reverb
 - Volume booster
 - 6-band parametric equalizer
-
-## Live Demo
-
-🔗 [Try it on Vercel](https://audio-mod.vercel.app)
 
 ## Run locally
 1. Clone repo
