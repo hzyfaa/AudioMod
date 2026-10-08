@@ -1,250 +1,206 @@
 import { useRef, useState, useEffect, useCallback } from "react";
-import { createImpulseResponseBuffer } from "@/utils/audioUtils";
+import { createAudioGraph, type AudioGraph } from "@/audio/audioGraph";
+import { getAudioFileError } from "@/utils/audioFile";
 
-interface UseAudioReturn {
-    audioRef: React.RefObject<HTMLAudioElement | null>;
-    audioFile: string | null;
-    fileName: string | null;
-    progress: number;
-    duration: number;
-    isPlaying: boolean;
-    uploadAudio: (file: File) => void;
-    togglePlayback: () => void;
-    updateSpeed: (value: number) => void;
-    seek: (value: number) => void;
-    updateReverb: (value: number) => void;
-    updateVolumeBoost: (value: number) => void;
-    updateEQ: (bandIndex: number, gain: number) => void;
-}
+export function useAudio() {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const objectURLRef = useRef<string | null>(null);
+  const contextRef = useRef<AudioContext | null>(null);
+  const graphRef = useRef<AudioGraph | null>(null);
+  const playbackRef = useRef({ request: 0, pending: false });
+  const settingsRef = useRef({
+    speed: 1,
+    reverb: 0,
+    boost: 0,
+    eq: [0, 0, 0, 0, 0, 0],
+  });
+  const [audioFile, setAudioFile] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-/*
- * @returns audio controls and state
- */
-export function useAudio(): UseAudioReturn {
-    // audio elements
-    const audioRef = useRef<HTMLAudioElement>(null);
-    const [audioFile, setAudioFile] = useState<string | null>(null);
-    const [fileName, setFileName] = useState<string | null>(null);
-    const [progress, setProgress] = useState(0);
-    const [duration, setDuration] = useState(0);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const speed = useRef(1.0);
-    const reverb = useRef(0);
-    const volumeBoost = useRef(1.0);
-    const eqBands = useRef<number[]>([0, 0, 0, 0, 0, 0]);
+  const uploadAudio = useCallback((file: File) => {
+    const validationError = getAudioFileError(file);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
 
-    // audio node references
-    const audioContextRef = useRef<AudioContext | null>(null);
-    const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
-    const convolverRef = useRef<ConvolverNode | null>(null);
-    const dryGainRef = useRef<GainNode | null>(null);
-    const wetGainRef = useRef<GainNode | null>(null);
-    const boostGainRef = useRef<GainNode | null>(null);
-    const filtersRef = useRef<BiquadFilterNode[]>([]);
+    const url = URL.createObjectURL(file);
+    playbackRef.current.request++;
+    playbackRef.current.pending = false;
+    audioRef.current?.pause();
+    if (objectURLRef.current) URL.revokeObjectURL(objectURLRef.current);
+    objectURLRef.current = url;
+    setAudioFile(url);
+    setFileName(file.name.replace(/\.[^/.]+$/, ""));
+    setProgress(0);
+    setDuration(0);
+    setIsPlaying(false);
+    setError(null);
+  }, []);
 
-    // return local url and set file name
-    const uploadAudio = useCallback((file: File) => {
-        // validate file type
-        if (!file.type.startsWith('audio/')) {
-            alert(`Invalid file type`);
-            return;
-        }
+  const togglePlayback = useCallback(async () => {
+    const audio = audioRef.current;
+    if (!audio || !objectURLRef.current) return;
 
-        // pause current audio if active
-        if (audioRef.current && !audioRef.current.paused) {
-            audioRef.current.pause();
-            setIsPlaying(false);
-        }
+    if (!audio.paused || playbackRef.current.pending) {
+      playbackRef.current.request++;
+      playbackRef.current.pending = false;
+      audio.pause();
+      return;
+    }
 
-        // create local url
-        setAudioFile((prev) => {
-            if (prev) URL.revokeObjectURL(prev);
-            return URL.createObjectURL(file);
-        });
+    const request = ++playbackRef.current.request;
+    playbackRef.current.pending = true;
+    setError(null);
+    try {
+      // Initialize/resume in a user gesture, not an upload effect.
+      const context = contextRef.current ?? new AudioContext();
+      contextRef.current = context;
+      if (!graphRef.current) {
+        const graph = createAudioGraph(context, audio);
+        graphRef.current = graph;
+        const settings = settingsRef.current;
+        graph.setReverb(settings.reverb);
+        graph.setVolumeBoost(settings.boost);
+        settings.eq.forEach((gain, index) => graph.setEQ(index, gain));
+      }
+      if (context.state === "suspended") await context.resume();
+      // A newer upload, stop, or unmount invalidates this request.
+      if (request !== playbackRef.current.request) return;
+      audio.preservesPitch = false;
+      audio.playbackRate = settingsRef.current.speed;
+      await audio.play();
+    } catch {
+      if (request === playbackRef.current.request) {
+        setIsPlaying(false);
+        setError(
+          "Could not play this audio. Try again or choose another file.",
+        );
+      }
+    } finally {
+      if (request === playbackRef.current.request)
+        playbackRef.current.pending = false;
+    }
+  }, []);
 
-        // sets name without extention for UI display
-        setFileName(file.name.replace(/\.[^/.]+$/, ""));
-    }, []);
+  const seek = useCallback((value: number) => {
+    const audio = audioRef.current;
+    if (
+      !audio ||
+      !Number.isFinite(value) ||
+      !Number.isFinite(audio.duration) ||
+      audio.duration <= 0
+    )
+      return;
+    audio.currentTime = Math.min(audio.duration, Math.max(0, value));
+    setProgress(audio.currentTime);
+  }, []);
 
-    const togglePlayback = useCallback(() => {
-        if (!audioRef.current) return;
+  const updateSpeed = useCallback((value: number) => {
+    if (!Number.isFinite(value)) return;
+    const speed = Math.min(2, Math.max(0.5, value));
+    settingsRef.current.speed = speed;
+    if (audioRef.current) audioRef.current.playbackRate = speed;
+  }, []);
 
-        const audio = audioRef.current;
+  const updateReverb = useCallback((value: number) => {
+    if (!Number.isFinite(value)) return;
+    settingsRef.current.reverb = value;
+    graphRef.current?.setReverb(value);
+  }, []);
 
-        if (audio.paused) {
-            audio.play();
-        } else {
-            audio.pause();
-        }
+  const updateVolumeBoost = useCallback((value: number) => {
+    if (!Number.isFinite(value)) return;
+    settingsRef.current.boost = value;
+    graphRef.current?.setVolumeBoost(value);
+  }, []);
 
-        setIsPlaying(!audio.paused);
-    }, []);
+  const updateEQ = useCallback((index: number, gain: number) => {
+    if (
+      !Number.isInteger(index) ||
+      index < 0 ||
+      index >= settingsRef.current.eq.length ||
+      !Number.isFinite(gain)
+    )
+      return;
+    settingsRef.current.eq[index] = gain;
+    graphRef.current?.setEQ(index, gain);
+  }, []);
 
-    const seek = useCallback((value: number) => {
-        if (audioRef.current) audioRef.current.currentTime = value;
-    }, []);
-
-    const updateSpeed = useCallback((value: number) => {
-        if (!audioRef.current) return;
-
-        speed.current = value;
-        audioRef.current.playbackRate = value;
-    }, []);
-
-    const updateReverb = useCallback((value: number) => {
-        if (dryGainRef.current && wetGainRef.current) {
-            reverb.current = value;
-
-            const gainValue = value / 200;
-
-            dryGainRef.current.gain.value = 1 - gainValue;
-            wetGainRef.current.gain.value = gainValue;
-        }
-    }, []);
-
-    const updateVolumeBoost = useCallback((value: number) => {
-        if (!boostGainRef.current) return;
-
-        const clampedVal = Math.min(Math.max(value, 0), 300);
-        // slider value range: [0, 300]%
-        // actual node range: [0, 3]
-        const gainValue = 1 + (clampedVal / 300) * 2;
-
-        volumeBoost.current = gainValue;
-        boostGainRef.current.gain.value = gainValue;
-    }, []);
-
-    // update EQ band gain
-    const updateEQ = useCallback((bandIndex: number, gain: number) => {
-        if (!filtersRef.current) return;
-
-        eqBands.current[bandIndex] = gain;
-        filtersRef.current[bandIndex].gain.value = gain;
-    }, []);
-
-    const setUpAudioGraph = useCallback(() => {
-        if (!audioRef.current) return;
-
-        // store temp previous effect values
-        const tempDry = dryGainRef.current?.gain.value;
-        const tempWet = wetGainRef.current?.gain.value;
-
-        const audio = audioRef.current;
-        const context = audioContextRef.current ?? new AudioContext();
-        audioContextRef.current = context;
-
-        if (context.state === "suspended") context.resume();
-
-        // flag audio element to avoid re-wrapping
-        if (!sourceRef.current) sourceRef.current = context.createMediaElementSource(audio);
-
-        // clean up old nodes
-        dryGainRef.current?.disconnect();
-        wetGainRef.current?.disconnect();
-        convolverRef.current?.disconnect();
-        boostGainRef.current?.disconnect();
-        filtersRef.current.forEach(f => f.disconnect());
-
-        // create new nodes
-        dryGainRef.current = context.createGain();
-        wetGainRef.current = context.createGain();
-        convolverRef.current = context.createConvolver();
-        boostGainRef.current = context.createGain();
-
-        const frequencies = [60, 150, 400, 1000, 2400, 15000];
-        filtersRef.current = frequencies.map((freq, i) => {
-            const filter = context.createBiquadFilter();
-            filter.type = "peaking";
-            filter.frequency.value = freq;
-            filter.gain.value = eqBands.current[i];
-            filter.Q.value = 1.0;
-            return filter;
-        });
-
-        // set impulse response (* currently takes default duration and decay *)
-        convolverRef.current.buffer = createImpulseResponseBuffer(context, 5, 5);
-
-        // connect nodes
-
-        // SOURCE -> EQ -> split:
-        //  dry gain -> boost
-        //  convolver -> wet gain -> boost
-        //      boost -> out
-
-        let lastNode: AudioNode = sourceRef.current;
-
-        // connect EQ filters
-        filtersRef.current.forEach(filter => {
-            lastNode.connect(filter);
-            lastNode = filter;
-        });
-
-        // dry path
-        lastNode.connect(dryGainRef.current)
-            .connect(boostGainRef.current)
-            .connect(context.destination);
-
-        // wet path
-        lastNode.connect(convolverRef.current)
-            .connect(wetGainRef.current)
-            .connect(boostGainRef.current)
-            .connect(context.destination);
-
-        // initialize audio effects
-        // previously active effects are preserved
-        audio.preservesPitch = false;
-        audio.playbackRate = speed.current;
-        dryGainRef.current.gain.value = tempDry ?? 1;
-        wetGainRef.current.gain.value = tempWet ?? 0;
-        boostGainRef.current.gain.value = volumeBoost.current;
-    }, []);
-
-    // initialize audio listeners and graph on file change 
-    useEffect(() => {
-        if (!audioRef.current || !audioFile) return;
-
-        const audio = audioRef.current;
-        // update current time
-        const updateProgress = () => setProgress(audio.currentTime);
-        // get duration once metadata is loaded
-        const onLoadedMetadata = () => setDuration(audio.duration);
-        // update play state on end
-        const onEnded = () => setIsPlaying(false);
-
-        // add listeners
-        audio.addEventListener("timeupdate", updateProgress);
-        audio.addEventListener("loadedmetadata", onLoadedMetadata);
-        audio.addEventListener("ended", onEnded);
-
-        //initialize audio graph
-        setUpAudioGraph();
-
-        // cleanup listeners
-        return () => {
-            audio.removeEventListener("timeupdate", updateProgress);
-            audio.removeEventListener("loadedmetadata", onLoadedMetadata);
-            audio.removeEventListener("ended", onEnded);
-        };
-    }, [audioFile, setUpAudioGraph]);
-
-    // close AudioContext on unmount
-    useEffect(() => {
-        return () => { audioContextRef.current?.close().catch(console.error); }
-    }, []);
-
-    return {
-        audioRef,
-        audioFile,
-        fileName,
-        progress,
-        duration,
-        isPlaying,
-        uploadAudio,
-        togglePlayback,
-        seek,
-        updateSpeed,
-        updateReverb,
-        updateVolumeBoost,
-        updateEQ
+  useEffect(() => {
+    // keeps mounted, before first upload
+    const audio = audioRef.current;
+    if (!audio) return;
+    const playback = playbackRef.current;
+    const onTimeUpdate = () =>
+      setProgress(Number.isFinite(audio.currentTime) ? audio.currentTime : 0);
+    const onMetadata = () => {
+      setDuration(Number.isFinite(audio.duration) ? audio.duration : 0);
+      audio.preservesPitch = false;
+      audio.playbackRate = settingsRef.current.speed;
     };
+    const onPlay = () => setIsPlaying(true);
+    const onPause = () => setIsPlaying(false);
+    const onError = () => {
+      playbackRef.current.request++;
+      playbackRef.current.pending = false;
+      setIsPlaying(false);
+      setDuration(0);
+      setProgress(0);
+      setError(
+        "This file could not be decoded. Try a different audio file or format.",
+      );
+    };
+    audio.addEventListener("timeupdate", onTimeUpdate);
+    audio.addEventListener("loadedmetadata", onMetadata);
+    audio.addEventListener("durationchange", onMetadata);
+    audio.addEventListener("play", onPlay);
+    audio.addEventListener("pause", onPause);
+    audio.addEventListener("ended", onPause);
+    audio.addEventListener("error", onError);
+
+    return () => {
+      playback.request++;
+      playback.pending = false;
+      audio.removeEventListener("timeupdate", onTimeUpdate);
+      audio.removeEventListener("loadedmetadata", onMetadata);
+      audio.removeEventListener("durationchange", onMetadata);
+      audio.removeEventListener("play", onPlay);
+      audio.removeEventListener("pause", onPause);
+      audio.removeEventListener("ended", onPause);
+      audio.removeEventListener("error", onError);
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+      if (objectURLRef.current) URL.revokeObjectURL(objectURLRef.current);
+      objectURLRef.current = null;
+      graphRef.current?.disconnect();
+      graphRef.current = null;
+      void contextRef.current?.close().catch(() => {
+        // closed by browser
+      });
+      contextRef.current = null;
+    };
+  }, []);
+
+  return {
+    audioRef,
+    audioFile,
+    fileName,
+    progress,
+    duration,
+    isPlaying,
+    error,
+    uploadAudio,
+    togglePlayback,
+    seek,
+    updateSpeed,
+    updateReverb,
+    updateVolumeBoost,
+    updateEQ,
+  };
 }
