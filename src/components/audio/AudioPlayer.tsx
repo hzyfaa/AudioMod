@@ -9,50 +9,63 @@ import { VolumeBooster } from "../controls/VolumeBooster";
 import { Equalizer } from "../controls/eq/Equalizer";
 
 export function AudioPlayer() {
-    const {
-        audioRef,
-        audioFile,
-        fileName,
-        progress,
-        duration,
-        isPlaying,
-        uploadAudio,
-        togglePlayback,
-        updateSpeed,
-        seek,
-        updateReverb,
-        updateVolumeBoost,
-        updateEQ
-    } = useAudio();
+  const {
+    audioRef,
+    audioFile,
+    fileName,
+    progress,
+    duration,
+    isPlaying,
+    error,
+    uploadAudio,
+    togglePlayback,
+    updateSpeed,
+    seek,
+    updateReverb,
+    updateVolumeBoost,
+    updateEQ,
+  } = useAudio();
 
-    return (
-        <div className="flex flex-col items-center justify-center space-y-6">
-            {/* Upload button */}
-            <UploadButton onUpload={uploadAudio} />
-            {/* audio controls - hidden until file is uploaded */}
-            {audioFile && (
-                <>
-                    {/* Song title */}
-                    <p className="text-base font-semibold py-5">
-                        Playing: {fileName}
-                    </p>
-                    <audio preload="metadata" ref={audioRef} src={audioFile} />
-                    {/* Play/Pause Button */}
-                    <Button size="icon" className="rounded-full cursor-pointer hover:scale-105 transition-transform" onClick={togglePlayback}>
-                        {isPlaying ? <Pause size={36} /> : <Play size={36} />}
-                    </Button>
-                    {/* Audio Seek */}
-                    <ProgressBar currentTime={progress} duration={duration} onSeek={seek} />
-                    {/* Speed Slider */}
-                    <SpeedSlider onChange={updateSpeed} />
-                    {/* Reverb Slider */}
-                    <ReverbSlider onChange={updateReverb} />
-                    {/* Volume boost control */}
-                    <VolumeBooster onChange={updateVolumeBoost} />
-                    {/* Equalizer control */}
-                    <Equalizer onChange={updateEQ} />
-                </>
-            )}
-        </div>
-    );
+  return (
+    <div className="flex flex-col items-center justify-center space-y-6">
+      {/* Upload button */}
+      <UploadButton onUpload={uploadAudio} />
+      <audio preload="metadata" ref={audioRef} src={audioFile ?? undefined} />
+      {error && (
+        <p role="alert" className="text-sm text-destructive max-w-sm">
+          {error}
+        </p>
+      )}
+      {/* audio controls - hidden until file is uploaded */}
+      {audioFile && (
+        <>
+          {/* Song title */}
+          <p className="text-base font-semibold py-5">{fileName}</p>
+          {/* Play/Pause Button */}
+          <Button
+            aria-label={isPlaying ? "Pause" : "Play"}
+            size="icon"
+            className="rounded-full cursor-pointer hover:scale-105 transition-transform"
+            onClick={togglePlayback}
+          >
+            {isPlaying ? <Pause size={36} /> : <Play size={36} />}
+          </Button>
+          {/* Audio Seek */}
+          <ProgressBar
+            currentTime={progress}
+            duration={duration}
+            onSeek={seek}
+          />
+          {/* Speed Slider */}
+          <SpeedSlider onChange={updateSpeed} />
+          {/* Reverb Slider */}
+          <ReverbSlider onChange={updateReverb} />
+          {/* Volume boost control */}
+          <VolumeBooster onChange={updateVolumeBoost} />
+          {/* Equalizer control */}
+          <Equalizer onChange={updateEQ} />
+        </>
+      )}
+    </div>
+  );
 }
