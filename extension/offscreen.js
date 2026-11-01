@@ -1,15 +1,20 @@
 let stream = null;
 let context = null;
 let source = null;
+let gain = null;
+let volume = 100;
 
 async function stopAudio() {
   const oldStream = stream;
   const oldContext = context;
   const oldSource = source;
+  const oldGain = gain;
 
   stream = null;
   context = null;
   source = null;
+  gain = null;
+  volume = 100;
 
   if (oldStream) {
     for (const track of oldStream.getTracks()) {
@@ -19,6 +24,7 @@ async function stopAudio() {
   }
 
   oldSource?.disconnect();
+  oldGain?.disconnect();
 
   if (oldContext && oldContext.state !== "closed") {
     await oldContext.close();
@@ -41,7 +47,11 @@ async function startAudio(streamId) {
 
     context = new AudioContext();
     source = context.createMediaStreamSource(stream);
-    source.connect(context.destination);
+    gain = context.createGain();
+    gain.gain.value = volume / 100;
+
+    source.connect(gain);
+    gain.connect(context.destination);
 
     await context.resume();
 
@@ -63,22 +73,51 @@ async function startAudio(streamId) {
   }
 }
 
+function setVolume(value) {
+  if (!Number.isFinite(value)) {
+    throw new Error("Volume must be a finite number.");
+  }
+
+  if (!stream?.active || !context || !gain) {
+    throw new Error("Start audio processing before changing volume.");
+  }
+
+  volume = Math.min(200, Math.max(0, value));
+
+  gain.gain.cancelScheduledValues(context.currentTime);
+  gain.gain.setTargetAtTime(
+    volume / 100,
+    context.currentTime,
+    0.015,
+  );
+}
+
 async function handleMessage(message) {
   switch (message.type) {
     case "start":
       await startAudio(message.streamId);
-      return { ok: true };
+      break;
 
     case "stop":
       await stopAudio();
-      return { ok: true };
+      break;
+
+    case "volume":
+      setVolume(message.volume);
+      break;
 
     case "status":
-      return { ok: true, active: stream?.active ?? false };
+      break;
 
     default:
       throw new Error("Unknown audio command.");
   }
+
+  return {
+    ok: true,
+    active: stream?.active ?? false,
+    volume,
+  };
 }
 
 chrome.runtime.onMessage.addListener(

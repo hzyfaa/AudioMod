@@ -1,4 +1,6 @@
-let busy = false;
+// process commands in order
+
+let pending = Promise.resolve();
 
 async function showState(active) {
   await chrome.action.setBadgeText({
@@ -6,9 +8,7 @@ async function showState(active) {
   });
 
   await chrome.action.setTitle({
-    title: active
-      ? "Stop AudioMod"
-      : "Start AudioMod on this tab",
+    title: active ? "AudioMod is active" : "Open AudioMod",
   });
 }
 
@@ -26,67 +26,115 @@ async function sendToAudio(type, extra = {}) {
   return response;
 }
 
-async function toggleAudio(tab) {
-  if (await chrome.offscreen.hasDocument()) {
-    const { active } = await sendToAudio("status");
-
-    await sendToAudio("stop");
-    await chrome.offscreen.closeDocument();
-    await showState(false);
-
-    // limit to one active session at a time
-    if (active) return;
+async function getState() {
+  if (!(await chrome.offscreen.hasDocument())) {
+    return { ok: true, active: false, volume: 100 };
   }
 
-  if (tab.id === undefined) {
+  return sendToAudio("status");
+}
+
+async function stopCapture() {
+  try {
+    if (await chrome.offscreen.hasDocument()) {
+      try {
+        await sendToAudio("stop");
+      } finally {
+        await chrome.offscreen.closeDocument();
+      }
+    }
+  } finally {
+    await showState(false);
+  }
+}
+
+async function startCapture() {
+  const state = await getState();
+
+  if (state.active) {
+    throw new Error("Stop the current session before starting another.");
+  }
+
+  const [tab] = await chrome.tabs.query({
+    active: true,
+    currentWindow: true,
+  });
+
+  if (tab?.id === undefined) {
     throw new Error("No browser tab was selected.");
   }
 
-  await chrome.offscreen.createDocument({
-    url: "offscreen.html",
-    reasons: ["USER_MEDIA"],
-    justification: "Process and play audio captured from a browser tab.",
-  });
-
-  const streamId = await chrome.tabCapture.getMediaStreamId({
-    targetTabId: tab.id,
-  });
-
-  await sendToAudio("start", { streamId });
-  await showState(true);
-}
-
-chrome.action.onClicked.addListener(async (tab) => {
-  if (busy) return;
-  busy = true;
+  // remove inactive document after a captured tab closed
+  await stopCapture();
 
   try {
-    await toggleAudio(tab);
+    await chrome.offscreen.createDocument({
+      url: "offscreen.html",
+      reasons: ["USER_MEDIA"],
+      justification: "Process and play audio captured from a browser tab.",
+    });
+
+    const streamId = await chrome.tabCapture.getMediaStreamId({
+      targetTabId: tab.id,
+    });
+
+    await sendToAudio("start", { streamId });
   } catch (error) {
-    // destroying the offscreen document releases its media resources
     try {
-      if (await chrome.offscreen.hasDocument()) {
-        await chrome.offscreen.closeDocument();
-      }
+      await stopCapture();
     } catch (cleanupError) {
       console.error("AudioMod cleanup failed:", cleanupError);
     }
 
-    const message =
-      error instanceof Error ? error.message : String(error);
-
-    console.error("AudioMod failed:", error);
-    await chrome.action.setBadgeText({ text: "ERR" });
-    await chrome.action.setTitle({
-      title: `AudioMod: ${message}`,
-    });
-  } finally {
-    busy = false;
+    throw error;
   }
-});
+}
 
-chrome.runtime.onMessage.addListener((message) => {
-  if (message.target === "background" && message.type === "ended") {
-    void showState(false);
+async function handleCommand(message) {
+  switch (message.type) {
+    case "start":
+      await startCapture();
+      break;
+
+    case "stop":
+      await stopCapture();
+      break;
+
+    case "volume":
+      await sendToAudio("volume", { volume: message.volume });
+      break;
+
+    case "status":
+    case "ended":
+      break;
+
+    default:
+      throw new Error("Unknown AudioMod command.");
   }
-});
+
+  const state = await getState();
+  await showState(state.active);
+  return state;
+}
+
+chrome.runtime.onMessage.addListener(
+  (message, _sender, sendResponse) => {
+    if (message.target !== "background") return;
+
+    const result = pending.then(() => handleCommand(message));
+
+    // a failed command should not block later commands
+    pending = result.catch(() => undefined);
+
+    result.then(
+      sendResponse,
+      (error) =>
+        sendResponse({
+          ok: false,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+    );
+
+    return true;
+  },
+);

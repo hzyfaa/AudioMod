@@ -6,7 +6,8 @@
   "minimum_chrome_version": "116",
   "permissions": ["activeTab", "tabCapture", "offscreen"],
   "action": {
-    "default_title": "Start AudioMod on this tab"
+    "default_title": "Open AudioMod",
+    "default_popup": "popup.html"
   },
   "background": {
     "service_worker": "background.js",
