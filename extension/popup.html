@@ -1,32 +1,36 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>AudioMod</title>
-  </head>
-  <body>
-    <h1>AudioMod</h1>
+	<head>
+		<meta charset="UTF-8" />
+		<title>AudioMod</title>
+	</head>
+	<body>
+		<h1>AudioMod</h1>
 
-    <p id="status" role="status">Loading…</p>
+		<p id="status" role="status">Loading…</p>
 
-    <button id="start" type="button" disabled>Start on this tab</button>
-    <button id="stop" type="button" disabled>Stop processing</button>
+		<button id="start" type="button" disabled>Start on this tab</button>
+		<button id="stop" type="button" disabled>Stop processing</button>
 
-    <p>
-      <label for="volume">Volume</label>
-      <output id="volume-value" for="volume">100%</output>
-    </p>
+		<p>
+			<label for="volume">Volume</label>
+			<output id="volume-value" for="volume">100%</output>
+		</p>
 
-    <input
-      id="volume"
-      type="range"
-      min="0"
-      max="200"
-      step="1"
-      value="100"
-      disabled
-    />
+		<input
+			id="volume"
+			type="range"
+			min="0"
+			max="200"
+			step="1"
+			value="100"
+			disabled
+		/>
+		<fieldset id="equalizer" disabled>
+			<legend>Equalizer</legend>
+			<div id="eq-bands"></div>
+		</fieldset>
 
-    <script type="module" src="popup.js"></script>
-  </body>
+		<script type="module" src="popup.js"></script>
+	</body>
 </html>

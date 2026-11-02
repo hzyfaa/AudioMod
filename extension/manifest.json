@@ -1,16 +1,16 @@
 {
-  "manifest_version": 3,
-  "name": "AudioMod",
-  "version": "0.1.0",
-  "description": "Apply audio effects to a browser tab.",
-  "minimum_chrome_version": "116",
-  "permissions": ["activeTab", "tabCapture", "offscreen"],
-  "action": {
-    "default_title": "Open AudioMod",
-    "default_popup": "popup.html"
-  },
-  "background": {
-    "service_worker": "background.js",
-    "type": "module"
-  }
+	"manifest_version": 3,
+	"name": "AudioMod",
+	"version": "0.1.0",
+	"description": "Apply audio effects to a browser tab.",
+	"minimum_chrome_version": "116",
+	"permissions": ["activeTab", "tabCapture", "offscreen"],
+	"action": {
+		"default_title": "Open AudioMod",
+		"default_popup": "popup.html"
+	},
+	"background": {
+		"service_worker": "background.js",
+		"type": "module"
+	}
 }
