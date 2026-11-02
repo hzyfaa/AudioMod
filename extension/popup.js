@@ -9,6 +9,7 @@ const equalizerControls = document.querySelector("#equalizer");
 const bandsContainer = document.querySelector("#eq-bands");
 const reverbSlider = document.querySelector("#reverb");
 const reverbValue = document.querySelector("#reverb-value");
+const resetButton = document.querySelector("#reset");
 
 let active = false;
 let busy = true;
@@ -62,6 +63,7 @@ function updateControls() {
 	volumeSlider.disabled = busy || !active;
 	equalizerControls.disabled = busy || !active;
 	reverbSlider.disabled = busy || !active;
+	resetButton.disabled = busy || !active;
 }
 
 function render(state) {
@@ -138,6 +140,10 @@ reverbSlider.addEventListener("input", () => {
 	void request("reverb", { value }).catch((error) => {
 		statusText.textContent = error.message;
 	});
+});
+
+resetButton.addEventListener("click", () => {
+	void runCommand("reset");
 });
 
 // refresh if the captured tab closes while the popup is open

@@ -136,6 +136,20 @@ async function handleMessage(message) {
 			reverb.setAmount(message.value);
 			break;
 
+		case "reset":
+			if (!stream?.active || !equalizer || !reverb) {
+				throw new Error("Start audio processing before resetting effects.");
+			}
+
+			setVolume(100);
+
+			EQ_FREQUENCIES.forEach((_, index) => {
+				equalizer.setBand(index, 0);
+			});
+
+			reverb.setAmount(0);
+			break;
+
 		case "status":
 			break;
 

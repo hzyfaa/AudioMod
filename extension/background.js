@@ -111,6 +111,7 @@ async function handleCommand(message) {
 			break;
 
 		case "status":
+
 		case "ended":
 			break;
 
@@ -123,6 +124,10 @@ async function handleCommand(message) {
 
 		case "reverb":
 			await sendToAudio("reverb", { value: message.value });
+			break;
+
+		case "reset":
+			await sendToAudio("reset");
 			break;
 
 		default:
