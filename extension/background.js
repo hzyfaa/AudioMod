@@ -33,6 +33,7 @@ async function getState() {
 			active: false,
 			volume: 100,
 			eq: EQ_FREQUENCIES.map(() => 0),
+			reverb: 0,
 		};
 	}
 
@@ -118,6 +119,10 @@ async function handleCommand(message) {
 				index: message.index,
 				value: message.value,
 			});
+			break;
+
+		case "reverb":
+			await sendToAudio("reverb", { value: message.value });
 			break;
 
 		default:

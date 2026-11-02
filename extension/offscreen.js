@@ -1,4 +1,5 @@
 import { createEqualizer, EQ_FREQUENCIES } from "./equalizer.js";
+import { createReverb } from "./reverb.js";
 
 let stream = null;
 let context = null;
@@ -6,6 +7,7 @@ let source = null;
 let gain = null;
 let volume = 100;
 let equalizer = null;
+let reverb = null;
 
 async function stopAudio() {
 	const oldStream = stream;
@@ -13,12 +15,14 @@ async function stopAudio() {
 	const oldSource = source;
 	const oldGain = gain;
 	const oldEqualizer = equalizer;
+	const oldReverb = reverb;
 
 	stream = null;
 	context = null;
 	source = null;
 	gain = null;
 	equalizer = null;
+	reverb = null;
 	volume = 100;
 
 	if (oldStream) {
@@ -31,6 +35,7 @@ async function stopAudio() {
 	oldSource?.disconnect();
 	oldGain?.disconnect();
 	oldEqualizer?.disconnect();
+	oldReverb?.disconnect();
 
 	if (oldContext && oldContext.state !== "closed") {
 		await oldContext.close();
@@ -57,9 +62,11 @@ async function startAudio(streamId) {
 		gain.gain.value = volume / 100;
 
 		equalizer = createEqualizer(context);
+		reverb = createReverb(context);
 
 		source.connect(equalizer.input);
-		equalizer.output.connect(gain);
+		equalizer.output.connect(reverb.input);
+		reverb.output.connect(gain);
 		gain.connect(context.destination);
 
 		await context.resume();
@@ -121,6 +128,14 @@ async function handleMessage(message) {
 			equalizer.setBand(message.index, message.value);
 			break;
 
+		case "reverb":
+			if (!stream?.active || !reverb) {
+				throw new Error("Start audio processing before changing reverb.");
+			}
+
+			reverb.setAmount(message.value);
+			break;
+
 		case "status":
 			break;
 
@@ -133,6 +148,7 @@ async function handleMessage(message) {
 		active: stream?.active ?? false,
 		volume,
 		eq: equalizer?.getGains() ?? EQ_FREQUENCIES.map(() => 0),
+		reverb: reverb?.getAmount() ?? 0,
 	};
 }
 
