@@ -7,6 +7,8 @@ const volumeValue = document.querySelector("#volume-value");
 const statusText = document.querySelector("#status");
 const equalizerControls = document.querySelector("#equalizer");
 const bandsContainer = document.querySelector("#eq-bands");
+const reverbSlider = document.querySelector("#reverb");
+const reverbValue = document.querySelector("#reverb-value");
 
 let active = false;
 let busy = true;
@@ -59,12 +61,15 @@ function updateControls() {
 	stopButton.disabled = busy || !active;
 	volumeSlider.disabled = busy || !active;
 	equalizerControls.disabled = busy || !active;
+	reverbSlider.disabled = busy || !active;
 }
 
 function render(state) {
 	active = state.active;
 	volumeSlider.value = String(state.volume);
 	volumeValue.value = `${state.volume}%`;
+	reverbSlider.value = String(state.reverb);
+	reverbValue.value = `${state.reverb}%`;
 
 	statusText.textContent = active
 		? "Processing audio from one tab."
@@ -122,6 +127,15 @@ volumeSlider.addEventListener("input", () => {
 	volumeValue.value = `${volume}%`;
 
 	void request("volume", { volume }).catch((error) => {
+		statusText.textContent = error.message;
+	});
+});
+
+reverbSlider.addEventListener("input", () => {
+	const value = Number(reverbSlider.value);
+	reverbValue.value = `${value}%`;
+
+	void request("reverb", { value }).catch((error) => {
 		statusText.textContent = error.message;
 	});
 });
